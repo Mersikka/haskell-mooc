@@ -181,12 +181,9 @@ winner scores player1 player2 = if (Map.findWithDefault 0 player1 scores) >= (Ma
 --     ==> Map.fromList [(False,3),(True,1)]
 
 freqs :: (Eq a, Ord a) => [a] -> Map.Map a Int
-freqs xs = freqs' xs Map.empty
-
-freqs' :: (Eq a, Ord a) => [a] -> Map.Map a Int -> Map.Map a Int
-freqs' [] res     = res
-freqs' (x:xs) res = freqs' xs (Map.alter f x res)
+freqs xs = foldr freqs' Map.empty xs
   where
+    freqs' x res = Map.alter f x res
     f Nothing = Just 1
     f (Just y) = Just (y+1)
 
@@ -216,7 +213,11 @@ freqs' (x:xs) res = freqs' xs (Map.alter f x res)
 --     ==> fromList [("Bob",100),("Mike",50)]
 
 transfer :: String -> String -> Int -> Map.Map String Int -> Map.Map String Int
-transfer from to amount bank = todo
+transfer from to amount bank
+  | amount < 0 = bank
+  | Map.notMember from bank || Map.notMember to bank = bank
+  | Map.findWithDefault 0 from bank - amount < 0 = bank
+  | otherwise = Map.adjust (\x -> x-amount) from $ Map.adjust (\x -> x+amount) to bank
 
 ------------------------------------------------------------------------------
 -- Ex 11: given an Array and two indices, swap the elements in the indices.
@@ -226,7 +227,7 @@ transfer from to amount bank = todo
 --         ==> array (1,4) [(1,"one"),(2,"three"),(3,"two"),(4,"four")]
 
 swap :: Ix i => i -> i -> Array i a -> Array i a
-swap i j arr = todo
+swap i j arr = arr // [(i, arr ! j), (j, arr ! i)]
 
 ------------------------------------------------------------------------------
 -- Ex 12: given an Array, find the index of the largest element. You
@@ -237,4 +238,4 @@ swap i j arr = todo
 -- Hint: check out Data.Array.indices or Data.Array.assocs
 
 maxIndex :: (Ix i, Ord a) => Array i a -> i
-maxIndex = todo
+maxIndex arr = fst $ maximumBy (comparing snd) $ Data.Array.assocs arr
