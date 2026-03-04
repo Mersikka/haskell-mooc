@@ -219,4 +219,9 @@ set (StepR:ss) val (Node v c1 c2) = Node v c1 (set ss val c2)
 --                    (Node 5 Empty Empty))                     ==>  Just [StepL,StepR]
 
 search :: Eq a => a -> Tree a -> Maybe [Step]
-search = todo
+search _ Empty = Nothing
+search x (Node v l r)
+  | x == v = Just([])
+  | otherwise = case search x l of Just path -> Just (StepL:path)
+                                   Nothing -> case search x r of Just path -> Just (StepR:path)
+                                                                 Nothing -> Nothing
