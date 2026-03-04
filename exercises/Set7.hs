@@ -143,7 +143,10 @@ average xs = sum xs / fromIntegral (length xs)
 -- PS. The Data.List.NonEmpty type has been imported for you
 
 reverseNonEmpty :: NonEmpty a -> NonEmpty a
-reverseNonEmpty = todo
+reverseNonEmpty (x :| xs) = go (reverse (x:xs))
+  where
+    go :: [a] -> NonEmpty a
+    go (x:xs) = (x :| xs)
 
 ------------------------------------------------------------------------------
 -- Ex 6: implement Semigroup instances for the Distance, Time and
@@ -155,6 +158,14 @@ reverseNonEmpty = todo
 -- velocity (Distance 50 <> Distance 10) (Time 1 <> Time 2)
 --    ==> Velocity 20
 
+instance Semigroup Distance where
+  Distance a <> Distance b = Distance (a+b)
+
+instance Semigroup Time where
+  Time a <> Time b = Time (a+b)
+
+instance Semigroup Velocity where
+  Velocity a <> Velocity b = Velocity (a+b)
 
 ------------------------------------------------------------------------------
 -- Ex 7: implement a Monoid instance for the Set type from exercise 2.
@@ -164,6 +175,16 @@ reverseNonEmpty = todo
 --
 -- What are the class constraints for the instances?
 
+instance Ord a => Semigroup (Set a) where
+  (<>) = unionSet
+
+unionSet :: Ord a => Set a -> Set a -> Set a
+unionSet (Set []) bs = bs
+unionSet as (Set []) = as
+unionSet (Set (a:as)) bs = unionSet (Set as) (add a bs)
+
+instance Ord a => Monoid (Set a) where
+  mempty = emptySet
 
 ------------------------------------------------------------------------------
 -- Ex 8: below you'll find two different ways of representing
@@ -186,29 +207,41 @@ reverseNonEmpty = todo
 
 data Operation1 = Add1 Int Int
                 | Subtract1 Int Int
+                | Multiply1 Int Int
   deriving Show
 
 compute1 :: Operation1 -> Int
 compute1 (Add1 i j) = i+j
 compute1 (Subtract1 i j) = i-j
+compute1 (Multiply1 i j) = i*j
 
 show1 :: Operation1 -> String
-show1 = todo
+show1 (Add1 i j) = show i ++ "+" ++ show j
+show1 (Subtract1 i j) = show i ++ "-" ++ show j
+show1 (Multiply1 i j) = show i ++ "*" ++ show j
 
 data Add2 = Add2 Int Int
   deriving Show
 data Subtract2 = Subtract2 Int Int
   deriving Show
+data Multiply2 = Multiply2 Int Int
+  deriving Show
 
 class Operation2 op where
   compute2 :: op -> Int
+  show2 :: op -> String
 
 instance Operation2 Add2 where
   compute2 (Add2 i j) = i+j
+  show2 (Add2 i j) = show i ++ "+" ++ show j
 
 instance Operation2 Subtract2 where
   compute2 (Subtract2 i j) = i-j
+  show2 (Subtract2 i j) = show i ++ "-" ++ show j
 
+instance Operation2 Multiply2 where
+  compute2 (Multiply2 i j) = i*j
+  show2 (Multiply2 i j) = show i ++ "*" ++ show j
 
 ------------------------------------------------------------------------------
 -- Ex 9: validating passwords. Below you'll find a type
@@ -237,7 +270,17 @@ data PasswordRequirement =
   deriving Show
 
 passwordAllowed :: String -> PasswordRequirement -> Bool
-passwordAllowed = todo
+passwordAllowed pw (MinimumLength i) = length pw >= i
+passwordAllowed pw (ContainsSome cs) = go pw cs
+  where
+    go pw [] = False
+    go pw (c:cs) = c `elem` pw || go pw cs
+passwordAllowed pw (DoesNotContain cs) = go pw cs
+  where
+    go pw [] = True
+    go pw (c:cs) = c `notElem` pw && go pw cs
+passwordAllowed pw (And r1 r2) = passwordAllowed pw r1 && passwordAllowed pw r2
+passwordAllowed pw (Or r1 r2) = passwordAllowed pw r1 || passwordAllowed pw r2
 
 ------------------------------------------------------------------------------
 -- Ex 10: a DSL for simple arithmetic expressions with addition and
@@ -259,17 +302,25 @@ passwordAllowed = todo
 --     ==> "(3*(1+1))"
 --
 
-data Arithmetic = Todo
+data Arithmetic =
+  Literal Integer
+  | Multiply Arithmetic Arithmetic
+  | Add Arithmetic Arithmetic
   deriving Show
 
 literal :: Integer -> Arithmetic
-literal = todo
+literal i = Literal i
 
 operation :: String -> Arithmetic -> Arithmetic -> Arithmetic
-operation = todo
+operation "+" a b = Add a b
+operation "*" a b = Multiply a b
 
 evaluate :: Arithmetic -> Integer
-evaluate = todo
+evaluate (Literal i) = i
+evaluate (Multiply a b) = evaluate a * evaluate b
+evaluate (Add a b) = evaluate a + evaluate b
 
 render :: Arithmetic -> String
-render = todo
+render (Literal i) = show i
+render (Multiply a b) = "(" ++ render a ++ "*" ++ render b ++ ")"
+render (Add a b) = "(" ++ render a ++ "+" ++ render b ++ ")"
