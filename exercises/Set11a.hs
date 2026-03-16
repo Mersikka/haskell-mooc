@@ -105,12 +105,21 @@ countdownPrint n = do print n
 --   5. produces 9
 
 isums :: Int -> IO Int
-isums 0 = return 0
-isums n = do
-    i <- readLn
-    s <- isums(n-1)
-    print(i+s)
-    return(i+s)
+isums n = go n (Just 0)
+    where
+        go :: Int -> Maybe Int -> IO Int
+        go 0 _ = return 0
+        go n Nothing  = do
+            a <- readLn
+            print a
+            as <- go (n-1) (Just a)
+            return (a + as)
+        go n (Just i) = do
+            a <- readLn
+            print (a+i)
+            as <- go (n-1) (Just (a+i))
+            return (a+as)
+        
 
 ------------------------------------------------------------------------------
 -- Ex 8: when is a useful function, but its first argument has type
@@ -118,7 +127,10 @@ isums n = do
 -- argument has type IO Bool.
 
 whenM :: IO Bool -> IO () -> IO ()
-whenM cond op = todo
+whenM cond op = do
+    x <- cond
+    if x then do op
+         else return ()
 
 ------------------------------------------------------------------------------
 -- Ex 9: implement the while loop. while condition operation should
@@ -138,7 +150,11 @@ ask = do putStrLn "Y/N?"
          return $ line == "Y"
 
 while :: IO Bool -> IO () -> IO ()
-while cond op = todo
+while cond op = do
+    x <- cond
+    if x then do op
+                 while cond op
+         else return ()
 
 ------------------------------------------------------------------------------
 -- Ex 10: given a string and an IO operation, print the string, run
@@ -158,4 +174,7 @@ while cond op = todo
 --     4. returns the line read from the user
 
 debug :: String -> IO a -> IO a
-debug s op = todo
+debug s op = do putStrLn s
+                x <- op
+                putStrLn s
+                return x
