@@ -83,7 +83,7 @@ openDatabase dbName = do conn <- open dbName
 -- given a db connection, an account name, and an amount, deposit
 -- should add an (account, amount) row into the database
 deposit :: Connection -> T.Text -> Int -> IO ()
-deposit conn acc amount = do execute conn depositQuery (acc, amount)
+deposit conn acc amount = execute conn depositQuery (acc, amount)
 
 ------------------------------------------------------------------------------
 -- Ex 2: Fetching an account's balance. Below you'll find
@@ -115,7 +115,7 @@ balanceQuery = Query (T.pack "SELECT IFNULL(SUM(amount), 0) AS amount FROM event
 
 balance :: Connection -> T.Text -> IO Int
 balance conn acc = do res <- query conn balanceQuery [acc] :: IO [[Int]]
-                      return $ ((res) !! 0) !! 0
+                      return $ head (head res)
 
 ------------------------------------------------------------------------------
 -- Ex 3: Now that we have the database part covered, let's think about
@@ -147,22 +147,36 @@ balance conn acc = do res <- query conn balanceQuery [acc] :: IO [[Int]]
 --   parseCommand [T.pack "deposit", T.pack "madoff", T.pack "123456"]
 --     ==> Just (Deposit "madoff" 123456)
 
-data Command = Deposit T.Text Int | Balance T.Text
+data Command = Deposit T.Text Int | Balance T.Text | Withdraw T.Text Int
   deriving (Show, Eq)
 
 parseInt :: T.Text -> Maybe Int
 parseInt = readMaybe . T.unpack
 
 parseCommand :: [T.Text] -> Maybe Command
+parseCommand [] = Nothing
 parseCommand (c:cs)
   | c == T.pack "deposit" = goDep cs
-  | c == T.pack "balance" = goWit cs
+  | c == T.pack "balance" = goBal cs
+  | c == T.pack "withdraw" = goWit cs
+  | otherwise = Nothing
   where
     goDep :: [T.Text] -> Maybe Command
-    goDep (acc,amount) =
+    goDep [acc,amount] =
       case parseInt amount of
         Nothing -> Nothing
-        
+        (Just x) -> Just (Deposit acc x)
+    goDep _ = Nothing
+    goBal :: [T.Text] -> Maybe Command
+    goBal [acc] = Just (Balance acc)
+    goBal _ = Nothing
+    goWit :: [T.Text] -> Maybe Command
+    goWit [acc,amount] =
+      case parseInt amount of
+        Nothing -> Nothing
+        (Just x) -> Just (Withdraw acc x)
+    goWit _ = Nothing
+
 
 ------------------------------------------------------------------------------
 -- Ex 4: Running commands. Implement the IO operation perform that takes a
@@ -188,7 +202,13 @@ parseCommand (c:cs)
 --   "0"
 
 perform :: Connection -> Maybe Command -> IO T.Text
-perform = todo
+perform conn (Just (Deposit acc amount)) = do deposit conn acc amount
+                                              pure $ T.pack "OK" 
+perform conn (Just (Balance acc)) = do bal <- balance conn acc
+                                       pure $ T.pack (show bal)
+perform conn (Just (Withdraw acc amount)) = do withdraw conn acc amount
+                                               pure $ T.pack "OK"
+perform _ _ = do pure $ T.pack "ERROR"
 
 ------------------------------------------------------------------------------
 -- Ex 5: Next up, let's set up a simple HTTP server. Implement a WAI
@@ -208,7 +228,9 @@ encodeResponse t = LB.fromStrict (encodeUtf8 t)
 -- Remember:
 -- type Application = Request -> (Response -> IO ResponseReceived) -> IO ResponseReceived
 simpleServer :: Application
-simpleServer request respond = todo
+simpleServer request respond = do
+  let response = responseLBS status200 [] (encodeResponse (T.pack "BANK"))
+  respond response
 
 ------------------------------------------------------------------------------
 -- Ex 6: Now we finally have all the pieces we need to actually
@@ -237,7 +259,12 @@ simpleServer request respond = todo
 -- Remember:
 -- type Application = Request -> (Response -> IO ResponseReceived) -> IO ResponseReceived
 server :: Connection -> Application
-server db request respond = todo
+server db request respond = do
+  let cmd = parseCommand $ pathInfo request
+  result <- perform db cmd
+  let response = responseLBS status200 [] (encodeResponse result)
+  respond response
+  
 
 port :: Int
 port = 3421
@@ -268,6 +295,8 @@ main = do
 --   - Open <http://localhost:3421/balance/simon> in your browser.
 --     You should see the text 11.
 
+withdraw :: Connection -> T.Text -> Int -> IO ()
+withdraw conn acc amount = execute conn depositQuery (acc, -amount)
 
 ------------------------------------------------------------------------------
 -- Ex 8: Error handling. Modify the parseCommand function so that it
