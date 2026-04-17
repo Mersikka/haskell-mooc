@@ -445,6 +445,5 @@ instance (Functor f, Functor g) => Functor (Both f g) where
 
 instance (Applicative f, Applicative g) => Applicative (Both f g) where
   pure x = Both (pure $ pure x)
-  --liftA2 :: (a -> b -> c) -> f a -> f b -> f c
   liftA2 f (Both x) (Both y) = Both (liftA2 (liftA2 f) x y)
   
