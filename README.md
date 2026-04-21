@@ -2,7 +2,7 @@
 
 ## My Completion Status
 - [x] Part 1 Done
-- [ ] Part 2 Done
+- [x] Part 2 Done
 
 ---
 
